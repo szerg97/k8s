@@ -1,0 +1,85 @@
+=== DOCKER ===
+
+docker network create wordpress
+
+docker build -f mysql.dockerfile . -t aimvector/mysql-example
+docker run --rm -d `
+--name mysql `
+--net wordpress `
+-e MYSQL_DATABASE=exampledb `
+-e MYSQL_USER=exampleuser `
+-e MYSQL_PASSWORD=examplepassword `
+-e MYSQL_RANDOM_ROOT_PASSWORD=1 `
+-v ${PWD}/data:/var/lib/mysql `
+aimvector/mysql-example
+
+docker build -f wordpress.dockerfile . -t aimvector/wordpress-example
+docker run -d `
+--rm `
+-p 80:80 `
+--name wordpress `
+--net wordpress `
+-e WORDPRESS_DB_HOST=mysql `
+-e WORDPRESS_DB_USER=exampleuser `
+-e WORDPRESS_DB_PASSWORD=examplepassword `
+-e WORDPRESS_DB_NAME=exampledb `
+aimvector/wordpress-example
+
+docker rm -f wordpress
+docker rm -f mysql
+docker network rm wordpress
+rm data
+
+=== KIND ===
+
+kind create cluster --image kindest/node:v1.23.5
+
+=== KUBERNETES ===
+#CONFIGMAPS
+kubectl create namespace cms
+kubectl get ns
+kubectl -n cms create configmap mysql `
+--from-literal MYSQL_RANDOM_ROOT_PASSWORD=1
+kubectl -n cms get configmaps
+kubectl -n cms get configmaps mysql -o yaml
+
+#SECRETS
+kubectl -n cms create secret generic wordpress `
+--from-literal WORDPRESS_DB_HOST=mysql `
+--from-literal WORDPRESS_DB_NAME=exampledb `
+--from-literal WORDPRESS_DB_USER=exampleuser `
+--from-literal WORDPRESS_DB_PASSWORD=examplepassword
+
+kubectl -n cms create secret generic mysql `
+--from-literal MYSQL_DATABASE=exampledb `
+--from-literal MYSQL_USER=exampleuser `
+--from-literal MYSQL_PASSWORD=examplepassword `
+--from-literal MYSQL_RANDOM_ROOT_PASSWORD=1
+
+kubectl -n cms get secret
+kubectl -n cms get secret mysql -o yaml
+
+#DEPLOYMENT (1 pod for mysql, 1 pod for wordpress)
+kubectl -n cms apply -f yaml/deployment.yaml
+kubectl -n cms get deployment
+kubectl -n cms get pods
+
+#SERVICE
+kubectl -n cms apply -f yaml/service.yaml
+kubectl -n cms get svc
+
+#STATEFULSETS
+kubectl get storageclass
+kubectl -n cms apply -f yaml/statefulset.yaml
+kubectl -n cms get pods
+kubectl get pv
+kubectl -n cms get pvc
+
+#PORTFORWARD (to pods and to services)
+kubectl -n cms get pods
+kubectl -n cms port-forward wordpress-deployment-d89fbbfdf-twmkd 80
+
+kubectl -n cms get svc
+kubectl -n cms port-forward svc/wordpress 80
+
+#INGRESS (TODO)
